@@ -87,7 +87,7 @@ namespace GitHub.Runner.Worker.Handlers
                     if (string.IsNullOrEmpty(shellCommandPath))
                     {
                         shellCommand = "powershell";
-                        Trace.Info($"Defaulting to {shellCommand}");                        
+                        Trace.Info($"Defaulting to {shellCommand}");
                         shellCommandPath = WhichUtil.Which(shellCommand, require: true, Trace, prependPath);
                     }
                 }
@@ -277,7 +277,7 @@ namespace GitHub.Runner.Worker.Handlers
 #else
             // Don't add a BOM. It causes the script to fail on some operating systems (e.g. on Ubuntu 14).
             var encoding = new UTF8Encoding(false);
-#endif            
+#endif
             if (IsActionStep)
             {
                 // Script is written to local path (ie host) but executed relative to the StepHost, which may be a container
@@ -320,6 +320,36 @@ namespace GitHub.Runner.Worker.Handlers
 
             ExecutionContext.Debug($"{fileName} {arguments}");
 
+            ExecutionContext.Debug("BEFORE PROCESS EXECUTION");
+
+            // Debug StepHost execution details
+            ExecutionContext.Debug("=== STEPHOST EXECUTION DEBUG INFO ===");
+            ExecutionContext.Debug($"StepHost Type: {StepHost.GetType().Name}");
+            ExecutionContext.Debug($"IsContainerStepHost: {isContainerStepHost}");
+            ExecutionContext.Debug($"Is Action Step: {IsActionStep}");
+            ExecutionContext.Debug($"Execution Context Scope Name: '{ExecutionContext.ScopeName ?? "null"}'");
+            ExecutionContext.Debug($"Shell Command: '{shellCommand}'");
+            ExecutionContext.Debug($"Command Path: '{commandPath ?? "null"}'");
+            ExecutionContext.Debug($"File Name (for execution): '{fileName}'");
+            ExecutionContext.Debug($"Arguments: '{arguments}'");
+            ExecutionContext.Debug($"Original Working Directory: '{workingDirectory}'");
+            ExecutionContext.Debug($"Resolved Working Directory: '{StepHost.ResolvePathForStepHost(ExecutionContext, workingDirectory)}'");
+            if (IsActionStep)
+            {
+                ExecutionContext.Debug($"Script File Path (host): '{scriptFilePath}'");
+                ExecutionContext.Debug($"Resolved Script Path (stephost): '{resolvedScriptPath}'");
+            }
+            ExecutionContext.Debug($"Environment Variables Count: {Environment.Count}");
+            foreach (var env in Environment.Take(10)) // Show first 10 env vars to avoid spam
+            {
+                ExecutionContext.Debug($"  {env.Key}: {env.Value}");
+            }
+            if (Environment.Count > 10)
+            {
+                ExecutionContext.Debug($"  ... and {Environment.Count - 10} more environment variables");
+            }
+            ExecutionContext.Debug("=== END STEPHOST DEBUG INFO ===");
+
             Inputs.TryGetValue("standardInInput", out var standardInInput);
             using (var stdoutManager = new OutputManager(ExecutionContext, ActionCommandManager))
             using (var stderrManager = new OutputManager(ExecutionContext, ActionCommandManager))
@@ -340,7 +370,11 @@ namespace GitHub.Runner.Worker.Handlers
                                             standardInInput: standardInInput,
                                             cancellationToken: ExecutionContext.CancellationToken);
 
-                // Error
+
+                ExecutionContext.Debug("AFTER PROCESS EXECUTION");
+                ExecutionContext.Debug($"Exit Code: {exitCode}");
+                ExecutionContext.Debug($"StepHost Type (after execution): {StepHost.GetType().Name}");
+                ExecutionContext.Debug($"IsContainerStepHost (after execution): {isContainerStepHost}");                // Error
                 if (exitCode != 0)
                 {
                     ExecutionContext.Error($"Process completed with exit code {exitCode}.");
